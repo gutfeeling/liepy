@@ -1,122 +1,237 @@
-from sympy import Rational, sqrt
+from sympy import Rational, sqrt, Matrix
 
-def standard_name(family,dimension):
-    '''
-    This function converts the family and dimension information
-    to the standard form. The standard form uses alphabetic
-    family names 'a', 'b', 'c' 'd', 'e', 'f' and 'g'.
+from utils import list_product
 
-    Example : su(4) -> a(3), so(10) -> d(5) etc.
-    '''
-    if family == 'su':
-        return ('a', dimension-1)
-    elif family == 'so':
-        if dimension % 2 == 0:
-            return ('d', dimension/2)
+
+class LieGroup(object):
+
+    def __init__(self,family,dimension):
+        '''
+        This function performs two tasks :
+
+        1. Checks for possible errors in the family and dimension
+        information provided by the user.
+
+        2. Converts the family and dimension information
+        to the standard form. The standard form uses alphabetic
+        family names 'a', 'b', 'c' 'd', 'e', 'f' and 'g'.
+
+        Example : su(4) -> a(3), so(10) -> d(5) etc.
+        '''
+
+        # check errors in user input
+
+        if family not in ['a','b','c','d','e','f','g','su','so','sp']:
+            raise ValueError("Sorry, I can't recognize the Lie group family."
+                " Allowed options are 'a','b','c','d','e','f','g','su', 'so'"
+                " and 'sp'.")
+
+        if not isinstance(dimension,int):
+            raise TypeError("The dimension of the Lie group must be an integer")
+
+        # convert to standard form
+
+        if family == 'su':
+            if dimension < 2:
+                raise ValueError("Dimension of the su family cannot be less than 2")
+            self.family, self.dimension = 'a', dimension-1
+        elif family == 'so':
+            if dimension < 2:
+                raise ValueError("Dimension of the so family cannot be less than 2")
+            if dimension % 2 == 0:
+                self.family, self.dimension = 'd', dimension/2
+            else:
+                self.family, self.dimension = 'b', (dimension -1)/2
+        elif family == 'sp':
+            if dimension < 2:
+                raise ValueError("Dimension of the sp family cannot be less than 2")
+            elif dimension % 2 == 0:
+                self.family, self.dimension = 'c', dimension/2
+            else:
+                raise ValueError("The family sp can only have even dimensions")
+        elif family == 'e' and dimension not in [6,7,8]:
+            raise ValueError("The family e can only have dimensions 6,7 and 8")
+        elif family == 'f' and dimension != 4:
+            raise ValueError("The family f can only have dimension 4")
+        elif family == 'g' and dimension != 2:
+            raise ValueError("The family g can only have dimension 2")
         else:
-            return ('b', (dimension -1)/2)
-    elif family == 'sp':
-        if dimension % 2 == 0:
-            return ('c', dimension/2)
-        else:
-            raise ValueError('The family sp can only have even dimensions')
-    else:
-        return (family, dimension)
+            if dimension < 1:
+                raise ValueError("Dimension of the families a,b,c and d cannot"
+                    " be less than 1")
+            self.family, self.dimension = family, dimension
 
-def simple_roots(family,dimension):
-    '''
-    Returns a list of vectors that have the same lengths and
-    scalar products as the simple roots of the given lie group.
 
-    These vectors might not be the simple roots themselves. See
-    e.g e(7), for which we use 8 dimensional vectors.
-    '''
 
-    simple_root_list = []
 
-    if family == 'a':
-        for i in range(dimension):
-			vector1=[0 for j in range(i-1)]
-                    +[-sqrt(i)/sqrt(2*(i+1)) for j in range(int(i>0))]
-                    +[1/sqrt(2*j*(j+1)) for j in range(i+1,dimension+1)]
-			vector2=[0 for j in range(i)]
-                    +[-sqrt(i+1)/sqrt(2*(i+2))]
-                    +[1/sqrt(2*j*(j+1)) for j in range(i+2,dimension+1)]
-			simple_root_list.append([a -b for a,b in zip(vector1,vector2)])
 
-    elif family=='b':
-		for i in range(dimension-1):
-			simple_root_list.append([0 for j in range(i)]
-                                    +[1,-1]
-                                    +[0 for j in range(dimension-i-2)])
-		simple_root_list.append([0 for j in range(dimension-1)]+[1,])
+    def simple_roots(self):
+        '''
+        Returns a list of vectors that have the same lengths and
+        scalar products as the simple roots of the given lie group.
 
-    elif family=='c':
-		for i in range(dimension-1):
-			vector1=[0 for j in range(i-1)]
-                   +[-sqrt(i)/sqrt(2*(i+1)) for j in range(int(i>0))]
-                   +[1/sqrt(2*j*(j+1)) for j in range(i+1,dimension)]
-                   +[0,]
-			vector2=[0 for j in range(i)]
-                   +[-sqrt(i+1)/sqrt(2*(i+2))]
-                   +[1/sqrt(2*j*(j+1)) for j in range(i+2,dimension)]
-                   +[0,]
-			simple_root_list.append([a-b for a,b in zip(vector1,vector2)])
+        These vectors might not be the simple roots themselves. See
+        e.g e(7), for which we use 8 dimensional vectors.
+        '''
 
-		vector3=[0 for j in range(dimension-2)]
-                +[-sqrt(2*(dimension-1))/sqrt(dimension),0]
-		vector4=[0 for j in range(dimension-1)]
-                +[-sqrt(2)/sqrt(dimension)]
+        simple_root_list = []
 
-		simple_root_list.append([a-b for a,b in zip(vector3,vector4)])
+        if self.family == 'a':
+            for i in range(self.dimension):
+                vector1=[0 for j in range(i-1)]   \
+                        +[-sqrt(i)/sqrt(2*(i+1)) for j in range(int(i>0))]  \
+                        +[1/sqrt(2*j*(j+1)) for j in range(i+1,self.dimension+1)]
+                vector2=[0 for j in range(i)]  \
+                        +[-sqrt(i+1)/sqrt(2*(i+2))]  \
+                        +[1/sqrt(2*j*(j+1)) for j in range(i+2,self.dimension+1)]
+                simple_root_list.append([a -b for a,b in zip(vector1,vector2)])
 
-    elif family=='d':
-		for i in range(dimension-1):
-			simple_root_list.append([0 for j in range(i)]
-                                    +[1,-1]
-                                    +[0 for j in range(dimension-i-2)])
-		simple_root_list.append([0 for j in range(dimension-2)]
-                                +[1,1])
+        elif self.family=='b':
+            for i in range(self.dimension-1):
+                simple_root_list.append([0 for j in range(i)]+[1,-1]
+                                        +[0 for j in range(self.dimension-i-2)])
+            simple_root_list.append([0 for j in range(self.dimension-1)]+[1,])
 
-    elif family=='e':
+        elif self.family=='c':
+            for i in range(self.dimension-1):
+                vector1=[0 for j in range(i-1)]  \
+                        +[-sqrt(i)/sqrt(2*(i+1)) for j in range(int(i>0))]  \
+                        +[1/sqrt(2*j*(j+1)) for j in range(i+1,self.dimension)]  \
+                        +[0,]
+                vector2=[0 for j in range(i)]  \
+                        +[-sqrt(i+1)/sqrt(2*(i+2))]  \
+                        +[1/sqrt(2*j*(j+1)) for j in range(i+2,self.dimension)]  \
+                        +[0,]
+                simple_root_list.append([a-b for a,b in zip(vector1,vector2)])
 
-		if dimension==6:
-			simple_root_list=[[1,-1,0,0,0,0],
-                              [0,1,-1,0,0,0],
-                              [0,0,1,-1,0,0],
-                              [0,0,0,1,-1,0],
-                              [-Rational(1,2),-Rational(1,2),-Rational(1,2),
-                              -Rational(1,2),Rational(1,2),sqrt(3)/2],
-                              [0,0,0,1,1,0]]
-		elif dimension==7:
-			simple_root_list=[[0, 0, 0, 0, 0, 0, -1, 1],
-                              [0, 0, 0, 0, 0, -1, 1, 0],
-                              [0, 0, 0, 0, -1, 1, 0, 0],
-                              [0, 0, 0, -1, 1, 0, 0, 0],
-                              [0, 0, -1, 1, 0, 0, 0, 0],
-                              [0, -1, 1, 0, 0, 0, 0, 0],
-                              [Rational(1,2),Rational(1,2),Rational(1,2),
-                              Rational(1,2),-Rational(1,2),-Rational(1,2),
-                              -Rational(1,2),-Rational(1,2)]]
-		else:
-			simple_root_list=[[0, 0, 0, 0, 0, -1, 1, 0],
-                              [0, 0, 0, 0, -1, 1, 0, 0],
-                              [0, 0, 0, -1, 1, 0, 0, 0],
-                              [0, 0, -1, 1, 0, 0, 0, 0],
-                              [0, -1, 1, 0, 0, 0, 0, 0],
-                              [-1, 1, 0, 0, 0, 0, 0, 0],
-                              [Rational(1,2),-Rational(1,2),-Rational(1,2),
-                              -Rational(1,2),-Rational(1,2),-Rational(1,2),
-                              -Rational(1,2),Rational(1,2)],
-                              [1,1,0,0,0,0,0,0]]
-    elif family=='f':
-        simple_root_list=[[Rational(1,2),-Rational(1,2),
-                         -Rational(1,2),-Rational(1,2)],
-                         [0,0,0,1],
-                         [0,0,1,-1],
-                         [0,1,-1,0]]
+            vector3=[0 for j in range(self.dimension-2)]  \
+                    +[-sqrt(2*(self.dimension-1))/sqrt(self.dimension),0]
+            vector4=[0 for j in range(self.dimension-1)]  \
+                    +[-sqrt(2)/sqrt(self.dimension)]
 
-    elif family=='g':
-		simple_root_list=[[0,1], [sqrt(3)/2,-Rational(3,2)]]
+            simple_root_list.append([a-b for a,b in zip(vector3,vector4)])
 
-	return simple_root_list
+        elif self.family=='d':
+            for i in range(self.dimension-1):
+                simple_root_list.append([0 for j in range(i)]
+                                       +[1,-1]
+                                       +[0 for j in range(self.dimension-i-2)])
+            simple_root_list.append([0 for j in range(self.dimension-2)]
+                                    +[1,1])
+
+        elif self.family=='e':
+
+            if self.dimension==6:
+                simple_root_list=[[1,-1,0,0,0,0],
+                                  [0,1,-1,0,0,0],
+                                  [0,0,1,-1,0,0],
+                                  [0,0,0,1,-1,0],
+                                  [-Rational(1,2),-Rational(1,2),-Rational(1,2),
+                                  -Rational(1,2),Rational(1,2),sqrt(3)/2],
+                                  [0,0,0,1,1,0]]
+            elif self.dimension==7:
+                simple_root_list=[[0, 0, 0, 0, 0, 0, -1, 1],
+                                  [0, 0, 0, 0, 0, -1, 1, 0],
+                                  [0, 0, 0, 0, -1, 1, 0, 0],
+                                  [0, 0, 0, -1, 1, 0, 0, 0],
+                                  [0, 0, -1, 1, 0, 0, 0, 0],
+                                  [0, -1, 1, 0, 0, 0, 0, 0],
+                                  [Rational(1,2),Rational(1,2),Rational(1,2),
+                                  Rational(1,2),-Rational(1,2),-Rational(1,2),
+                                 -Rational(1,2),-Rational(1,2)]]
+            else:
+                simple_root_list=[[0, 0, 0, 0, 0, -1, 1, 0],
+                                  [0, 0, 0, 0, -1, 1, 0, 0],
+                                  [0, 0, 0, -1, 1, 0, 0, 0],
+                                  [0, 0, -1, 1, 0, 0, 0, 0],
+                                  [0, -1, 1, 0, 0, 0, 0, 0],
+                                  [-1, 1, 0, 0, 0, 0, 0, 0],
+                                  [Rational(1,2),-Rational(1,2),-Rational(1,2),
+                                  -Rational(1,2),-Rational(1,2),-Rational(1,2),
+                                  -Rational(1,2),Rational(1,2)],
+                                  [1,1,0,0,0,0,0,0]]
+        elif self.family=='f':
+            simple_root_list=[[Rational(1,2),-Rational(1,2),
+                              -Rational(1,2),-Rational(1,2)],
+                              [0,0,0,1],
+                              [0,0,1,-1],
+                              [0,1,-1,0]]
+
+        elif self.family=='g':
+            simple_root_list=[[0,1], [sqrt(3)/2,-Rational(3,2)]]
+
+        return simple_root_list
+
+    def cartan_matrix(self):
+        '''
+        Computes the Cartan matrix from the list of simple roots
+        '''
+        simple_root_list = self.simple_roots()
+        dimension = self.dimension
+        # Multiplying by Rational(1,2) ensures that the resulting expression
+        # is a SymPy expression.
+        return Matrix(dimension, dimension, lambda i,j :
+            Rational(2,1)*list_product(simple_root_list[i],simple_root_list[j])/
+            list_product(simple_root_list[j],simple_root_list[j]))
+
+    def positive_roots(self):
+        '''
+        Computes all positive roots of the lie algebra
+        Expresses the positive roots as commutators of simple roots
+        The output is a dictionary where the key is the positive root
+        and the value is a list of two items. The first item is a
+        number and the second is a commutator of simple roots. This root can be
+        expressed as the product of the number and the commutator.
+        '''
+        simple_root_list = self.simple_roots()
+        cartan_matrix = self.cartan_matrix()
+
+        roots_dict = {}
+        roots_last_step = {}
+        roots_this_step = {}
+
+        for i in range(self.dimension):
+            simple_root_i = [cartan_matrix[i,j] for j in range(self.dimension)]
+            q_value = [0 for j in range(i)] + [2,] +  \
+                       [0 for j in range(self.dimension -i -1)]
+            p_value = [a-b for a,b in zip(q_value, simple_root_i)]
+            roots_last_step[tuple(simple_root_i)] = [p_value, q_value, 1 , i]
+
+        while len(roots_last_step) > 0:
+
+            for (roots, value) in roots_last_step.iteritems():
+                roots_dict[roots] = (value[2],value[3])
+
+            for roots in roots_last_step:
+                p_value = roots_last_step[roots][0]
+                q_value = roots_last_step[roots][1]
+                for i in range(self.dimension):
+                    if p_value[i] > 0:
+                        simple_root_i = [cartan_matrix[i,j]
+                                        for j in range(self.dimension)]
+                        new_root = [a+b for a,b in zip(roots,simple_root_i)]
+                        try:
+                            roots_this_step[tuple(new_root)][1][i]=q_value[i]+1
+                        except KeyError:
+                            j_value = (p_value[i] + q_value[i])/Rational(2,1)
+                            m_value = -j_value + q_value[i]
+                            factor = sqrt(2)/sqrt(list_product(simple_root_list[i],
+                                simple_root_list[i])*(j_value + m_value +1)*
+                                (j_value - m_value))
+                            last_factor = roots_last_step[roots][2]
+                            new_factor = factor*last_factor
+                            last_commutator = roots_last_step[roots][3]
+                            new_commutator = [i, last_commutator]
+                            new_q_value = [0 for j in range(self.dimension)]
+                            new_q_value[i]+=q_value[i]+1
+                            roots_this_step[tuple(new_root)] = [None,
+                                new_q_value, new_factor, new_commutator]
+
+            for roots in roots_this_step:
+                roots_this_step[roots][0] = [
+                    a-b for a,b in zip(roots_this_step[roots][1], roots)]
+
+            roots_last_step = roots_this_step
+            roots_this_step = {}
+            
+        return roots_dict
