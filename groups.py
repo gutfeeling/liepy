@@ -29,36 +29,55 @@ class LieGroup(object):
         if not isinstance(dimension,int):
             raise TypeError("The dimension of the Lie group must be an integer")
 
-        # convert to standard form
+        # dimension checks
 
         if family == 'su':
             if dimension < 2:
                 raise ValueError("Dimension of the su family cannot be less than 2")
-            self.family, self.dimension = 'a', dimension-1
         elif family == 'so':
-            if dimension < 2:
-                raise ValueError("Dimension of the so family cannot be less than 2")
-            if dimension % 2 == 0:
-                self.family, self.dimension = 'd', dimension/2
-            else:
-                self.family, self.dimension = 'b', (dimension -1)/2
+            if dimension % 2 == 0 and dimension <8:
+                raise ValueError("Dimension of even dimensional so groups cannot"
+                " be less than 8")
+            elif dimension % 2 != 0 and dimension <5:
+                raise ValueError("Dimension of odd dimensional so groups cannot"
+                " be less than 5")
         elif family == 'sp':
-            if dimension < 2:
-                raise ValueError("Dimension of the sp family cannot be less than 2")
-            elif dimension % 2 == 0:
-                self.family, self.dimension = 'c', dimension/2
-            else:
+            if dimension % 2 != 0:
                 raise ValueError("The family sp can only have even dimensions")
+            elif dimension < 6:
+                raise ValueError("Dimension of the sp family cannot be less than 6")
+        elif family == 'a':
+            if dimension < 1:
+                raise ValueError("Dimension of the a family cannot be less than 1")
+        elif family == 'b':
+            if dimension < 2:
+                raise ValueError("Dimension of the b family cannot be less than 2")
+        elif family == 'c':
+            if dimension < 3:
+                raise ValueError("Dimension of the c family cannot be less than 3")
+        elif family == 'd':
+            if dimension < 4:
+                raise ValueError("Dimension of the d family cannot be less than 4")
         elif family == 'e' and dimension not in [6,7,8]:
             raise ValueError("The family e can only have dimensions 6,7 and 8")
         elif family == 'f' and dimension != 4:
             raise ValueError("The family f can only have dimension 4")
         elif family == 'g' and dimension != 2:
             raise ValueError("The family g can only have dimension 2")
+
+
+        # convert to standard form
+
+        if family == 'su':
+            self.family, self.dimension = 'a', dimension-1
+        elif family == 'so':
+            if dimension % 2 == 0:
+                self.family, self.dimension = 'd', dimension/2
+            else:
+                self.family, self.dimension = 'b', (dimension -1)/2
+        elif family == 'sp':
+            self.family, self.dimension = 'c', dimension/2
         else:
-            if dimension < 1:
-                raise ValueError("Dimension of the families a,b,c and d cannot"
-                    " be less than 1")
             self.family, self.dimension = family, dimension
 
 
@@ -199,7 +218,7 @@ class LieGroup(object):
 
         while len(roots_last_step) > 0:
 
-            for (roots, value) in roots_last_step.iteritems():
+            for (roots, value) in roots_last_step.items():
                 roots_dict[roots] = (value[2],value[3])
 
             for roots in roots_last_step:
@@ -233,5 +252,5 @@ class LieGroup(object):
 
             roots_last_step = roots_this_step
             roots_this_step = {}
-            
+
         return roots_dict
