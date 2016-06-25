@@ -193,6 +193,21 @@ class LieGroup(object):
             Rational(2,1)*list_product(simple_root_list[i],simple_root_list[j])/
             list_product(simple_root_list[j],simple_root_list[j]))
 
+
+    def fundamental_weights(self):
+        simple_root_list = self.simple_roots()
+        fundamental_weight_list = []
+        A = Matrix(self.dimension, self.dimension,
+            lambda i,j : Rational(2,1)*simple_root_list[i][j]/
+            list_product(simple_root_list[i],simple_root_list[i]))
+        for num in range(self.dimension):
+            Y = Matrix(self.dimension, 1,
+                 lambda i,j : 1 if i == num else 0)
+            X = A.LUsolve(Y)
+            fundamental_weight_list.append(
+                 [X[i,0] for i in range(self.dimension)])
+        return fundamental_weight_list
+
     def positive_roots(self):
         '''
         Computes all positive roots of the lie algebra
