@@ -86,11 +86,7 @@ class LieGroup(object):
 
     def simple_roots(self):
         '''
-        Returns a list of vectors that have the same lengths and
-        scalar products as the simple roots of the given lie group.
-
-        These vectors might not be the simple roots themselves. See
-        e.g e(7), for which we use 8 dimensional vectors.
+        Returns a list of simple roots
         '''
 
         simple_root_list = []
@@ -149,15 +145,15 @@ class LieGroup(object):
                                   -Rational(1,2),Rational(1,2),sqrt(3)/2],
                                   [0,0,0,1,1,0]]
             elif self.dimension==7:
-                simple_root_list=[[0, 0, 0, 0, 0, 0, -1, 1],
-                                  [0, 0, 0, 0, 0, -1, 1, 0],
-                                  [0, 0, 0, 0, -1, 1, 0, 0],
-                                  [0, 0, 0, -1, 1, 0, 0, 0],
-                                  [0, 0, -1, 1, 0, 0, 0, 0],
-                                  [0, -1, 1, 0, 0, 0, 0, 0],
-                                  [Rational(1,2),Rational(1,2),Rational(1,2),
-                                  Rational(1,2),-Rational(1,2),-Rational(1,2),
-                                 -Rational(1,2),-Rational(1,2)]]
+                simple_root_list=[[0, 0, 0, 0, 0, -1, 1],
+                                  [0, 0, 0, 0, -1, 1, 0],
+                                  [0, 0, 0, -1, 1, 0, 0],
+                                  [0, 0, -1, 1, 0, 0, 0],
+                                  [0, -1, 1, 0, 0, 0, 0],
+                                  [0, 1, 1, 0, 0, 0, 0],
+                                  [1/sqrt(2),Rational(1,2),-Rational(1,2),
+                                  -Rational(1,2),-Rational(1,2),-Rational(1,2),
+                                 -Rational(1,2)]]
             else:
                 simple_root_list=[[0, 0, 0, 0, 0, -1, 1, 0],
                                   [0, 0, 0, 0, -1, 1, 0, 0],
