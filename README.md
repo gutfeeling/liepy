@@ -23,7 +23,7 @@ cd K2P2
   - If you want to use python 3
 
     ```
-    virtualenv -p python3 venv3
+    virtualenv -p python3 venv
     ```
 
 2. Activate the virtualenv
