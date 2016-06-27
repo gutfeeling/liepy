@@ -408,9 +408,11 @@ class Representation(object):
 
         # generate matrices for negative roots
 
-        for (key,value) in representation_matrix_dict.items():
+        keys = list(representation_matrix_dict.keys())
+
+        for key in keys:
             if isinstance(key,tuple):
                 new_key = tuple([-i for i in key])
-                representation_matrix_dict[new_key] = value.T
+                representation_matrix_dict[new_key] = representation_matrix_dict[key].T
 
         return representation_matrix_dict

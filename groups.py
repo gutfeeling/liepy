@@ -72,11 +72,11 @@ class LieGroup(object):
             self.family, self.dimension = 'a', dimension-1
         elif family == 'so':
             if dimension % 2 == 0:
-                self.family, self.dimension = 'd', dimension/2
+                self.family, self.dimension = 'd', dimension // 2
             else:
-                self.family, self.dimension = 'b', (dimension -1)/2
+                self.family, self.dimension = 'b', (dimension -1) // 2
         elif family == 'sp':
-            self.family, self.dimension = 'c', dimension/2
+            self.family, self.dimension = 'c', dimension // 2
         else:
             self.family, self.dimension = family, dimension
 
