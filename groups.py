@@ -189,8 +189,19 @@ class LieGroup(object):
             Rational(2,1)*list_product(simple_root_list[i],simple_root_list[j])/
             list_product(simple_root_list[j],simple_root_list[j]))
 
+    @staticmethod
+    def simple_root_pq(i, cartan_matrix):
+        '''
+        Returns the ith simple root in the q-p notation by returning
+        the relevant row of the Cartan matrix
+        '''
+        return [cartan_matrix[i,k] for k in range(cartan_matrix.shape[0])]
+
 
     def fundamental_weights(self):
+        '''
+        Returns the list of fundamental weights
+        '''
         simple_root_list = self.simple_roots()
         fundamental_weight_list = []
         A = Matrix(self.dimension, self.dimension,
@@ -208,8 +219,8 @@ class LieGroup(object):
         '''
         Computes all positive roots of the lie algebra
         Expresses the positive roots as commutators of simple roots
-        The output is a dictionary where the key is the positive root
-        and the value is a list of two items. The first item is a
+        The output is a dictionary where the key is the positive root (expressed
+        in the q-p notation)and the value is a list of two items. The first item is a
         number and the second is a commutator of simple roots. This root can be
         expressed as the product of the number and the commutator.
         '''
@@ -227,7 +238,7 @@ class LieGroup(object):
             p_value = [a-b for a,b in zip(q_value, simple_root_i)]
             roots_last_step[tuple(simple_root_i)] = [p_value, q_value, 1 , i]
 
-        while len(roots_last_step) > 0:
+        while True:
 
             for (roots, value) in roots_last_step.items():
                 roots_dict[roots] = (value[2],value[3])
@@ -261,7 +272,9 @@ class LieGroup(object):
                 roots_this_step[roots][0] = [
                     a-b for a,b in zip(roots_this_step[roots][1], roots)]
 
-            roots_last_step = roots_this_step
-            roots_this_step = {}
-
-        return roots_dict
+            if len(roots_this_step) == 0:
+                adjoint_rep = list([key for key in roots_last_step][0])
+                return (roots_dict, adjoint_rep)
+            else:
+                roots_last_step = roots_this_step
+                roots_this_step = {}
