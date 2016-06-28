@@ -33,16 +33,10 @@ cd K2P2
   ```
 
 3. Install the python modules
-  - If you are using python 2
 
-    ```
-    pip install -r requirements.txt
-    ````
-  - If you are using python 3
-
-    ```
-    pip install -r requirements3.txt
-    ````
+  ```
+  pip install -r requirements.txt
+  ```
 
 ## You are good to go
 
