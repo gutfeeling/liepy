@@ -220,17 +220,15 @@ class Representation(object):
                             simple_root_i = [cartan_matrix[i,j]
                                         for j in range(self.lie_group.dimension)]
                             new_weight = [a-b for a,b in zip(weight,simple_root_i)]
-                            j_value = (p_value[i] + q_value[i])/Rational(2,1)
-                            m_value = -j_value + q_value[i]
-                            new_norm = sqrt(2)/sqrt(list_product(simple_root_list[i],
-                                simple_root_list[i])*(j_value - m_value +1)*
-                                (j_value + m_value))
                             lowering_chain.insert(0,i)
+                            new_norm = 1/sqrt(self.scalar_product(lowering_chain,
+                                lowering_chain, simple_root_list, highest_weight_vector))
                             new_p_value = [0 for j in range(self.lie_group.dimension)]
                             new_p_value[i]+=p_value[i]+1
                             new_q_value = None
-                            new_state = [new_p_value, new_q_value, new_norm*norm,
-                            lowering_chain,[[weight, state_num, i, 1/new_norm],]]
+                            matrix_element = Rational(1,1)*norm/new_norm
+                            new_state = [new_p_value, new_q_value, new_norm,
+                            lowering_chain,[[weight, state_num, i, matrix_element],]]
                             try:
                                 weights_this_step[tuple(new_weight)][0].append(new_state)
                             except KeyError:
@@ -252,22 +250,27 @@ class Representation(object):
                 rref = scalar_product_matrix.rref()
                 dependent = [index for index in range(degeneracy)
                     if index not in rref[1]]
-                for index in dependent:
-                    direction = all_states[index][3][0]
-                    parent = all_states[index][4][0][:2]
-                    parent_p_value = weights_last_step[parent[0]][0][parent[1]][0]
-                    for i in rref[1]:
-                        if rref[0][i, index] != 0:
-                            norm_independent = all_states[i][2]
-                            matrix_element = sum([
-                                (Rational(1,1)/norm_independent)*
-                                rref[0][j,index]*scalar_product_matrix[i,j]
-                                for j in rref[1] if rref[0][j,index] !=0])
-                            all_states[i][0][direction] = parent_p_value[direction]+1
-                            all_states[i][4].append([parent[0], parent[1],
-                                direction, matrix_element])
+
+                for i in rref[1]:
+                    for j in range(degeneracy):
+                        if not i==j:
+                            direction = all_states[j][4][0][2]
+                            parent = all_states[j][4][0][:2]
+                            parent_norm = weights_last_step[
+                                parent[0]][0][parent[1]][2]
+                            this_state_norm = all_states[j][2]
+                            matrix_element = (Rational(1,1)*scalar_product_matrix[i,j]*
+                                parent_norm/this_state_norm)
+                            all_states[i][4].append([parent[0],parent[1],direction,
+                                matrix_element])
+                            if not matrix_element == 0:
+                                parent_p_value = weights_last_step[
+                                    parent[0]][0][parent[1]][0]
+                                all_states[i][0][direction] = parent_p_value[direction]+1
 
                 weights_this_step[weight][0] = [all_states[i] for i in rref[1]]
+
+
                 for state in weights_this_step[weight][0]:
                     state[1] = [a+b for a,b in zip(state[0],weight)]
 
@@ -344,6 +347,27 @@ class Representation(object):
             representation_matrix_dict[tuple(
                 self.lie_group.simple_root_pq(i, cartan_matrix))] = simple_root_i_matrix
 
+        # convert to orthonormal basis
+
+        rotation_to_ob = zeros(representation_dimension)
+        for weight in weights_dict:
+            rotation_info = weights_dict[weight][1]
+            rotation_matrix = rotation_info[0]
+            #rotation_matrix_inverse = rotation_matrix**-1
+            start_index = rotation_info[1]
+            end_index  = rotation_info[2]
+            this_rotation = Matrix(representation_dimension,
+                representation_dimension, lambda i,j :
+                rotation_matrix[i-start_index,j-start_index]
+                if i in range(start_index,end_index+1)
+                and j in range(start_index,end_index+1) else 0)
+            rotation_to_ob+=this_rotation
+        for key in representation_matrix_dict:
+            rotated_matrix = rotation_to_ob* \
+            representation_matrix_dict[key]*rotation_to_ob.T
+            rotated_matrix.simplify()
+            representation_matrix_dict[key] = rotated_matrix
+
         # calculate representation matrices for cartan generators
 
         fundamental_weights = self.lie_group.fundamental_weights()
@@ -362,36 +386,6 @@ class Representation(object):
 
         for i in range(self.lie_group.dimension):
             representation_matrix_dict[i] = cartan_matrices[i]
-
-        # convert to orthonormal basis
-
-        rotation_to_ob = zeros(representation_dimension)
-        rotation_to_ob_inverse = zeros(representation_dimension)
-        for weight in weights_dict:
-            rotation_info = weights_dict[weight][1]
-            rotation_matrix = rotation_info[0]
-            rotation_matrix_inverse = rotation_matrix**-1
-            start_index = rotation_info[1]
-            end_index  = rotation_info[2]
-            this_rotation = Matrix(representation_dimension,
-                representation_dimension, lambda i,j :
-                rotation_matrix[i-start_index,j-start_index]
-                if i in range(start_index,end_index+1)
-                and j in range(start_index,end_index+1) else 0)
-            rotation_to_ob += this_rotation
-            this_rotation_inverse = Matrix(representation_dimension,
-                representation_dimension, lambda i,j :
-                rotation_matrix_inverse[i-start_index,j-start_index]
-                if i in range(start_index,end_index+1)
-                and j in range(start_index,end_index+1) else 0)
-            rotation_to_ob_inverse += this_rotation_inverse
-
-        for key in representation_matrix_dict:
-            rotated_matrix = rotation_to_ob* \
-                representation_matrix_dict[key]*rotation_to_ob_inverse
-            rotated_matrix.simplify()
-            representation_matrix_dict[key] = rotated_matrix
-
 
         # calculate representation matrices for other positive roots
 
