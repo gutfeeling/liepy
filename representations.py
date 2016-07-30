@@ -1,4 +1,4 @@
-from sympy import Rational, sqrt, Matrix, eye, zeros, together
+from sympy import Rational, sqrt, Matrix, eye, zeros, together, SparseMatrix
 
 from groups import LieGroup
 from utils import list_product, gram_schmidt_rotation
@@ -107,36 +107,6 @@ class Representation(object):
                     (tuple(state1),tuple(state2)) : result}
             return result
 
-    def commutator_to_matrix(self, commutator, cartan_matrix, matrix_dict):
-        '''
-        Positive roots can be expressed as commutators of simple roots.
-        For example, a positive root P may be equal to [1,[1,2]], which means
-        commutator of the simple root 1 with the commutator of simple
-        root 1 and simple root 2.
-
-        After finding the representation matrices of the simple roots,
-        we use this function to replace the integers (denoting simple roots)
-        into their corresponding matrix expressions. We finally return a
-        matrix which is equal to the commutator.
-        '''
-
-        root1 = self.lie_group.simple_root_pq(commutator[0], cartan_matrix)
-        matrix1 = matrix_dict[tuple(root1)]
-        if not isinstance(commutator[1],list):
-            root2 = self.lie_group.simple_root_pq(commutator[1], cartan_matrix)
-            matrix2 = matrix_dict[tuple(root2)]
-        else:
-            matrix2 = self.commutator_to_matrix(commutator[1],
-                cartan_matrix, matrix_dict)
-        result = matrix1*matrix2 - matrix2*matrix1
-
-        # simplify converts the expressions into the simplest form.
-        # have tried other functions like together, ratsimp etc. but
-        # they dont work as well
-
-        result.simplify()
-        return result
-
     def __weights(self):
         '''
         A private function that returns the weights of the representation
@@ -206,7 +176,7 @@ class Representation(object):
                 weights_dict[weights] = [state_list,
                     [value[1],start_index, end_index]]
 
-            print("Computed %s states so far..." % len(weights_dict))
+            #print("Computed %s states so far..." % len(weights_dict))
 
             for weight in weights_last_step:
                 for state_num in range(len(weights_last_step[weight][0])):
@@ -240,45 +210,48 @@ class Representation(object):
             for weight in weights_this_step:
                 all_states = weights_this_step[weight][0]
                 degeneracy = len(all_states)
-                scalar_product_matrix = Matrix(degeneracy, degeneracy,
-                    lambda i,j : all_states[i][2]*all_states[j][2]*
-                    self.scalar_product(all_states[i][3], all_states[j][3],
-                    simple_root_list, highest_weight_vector)
-                    if i > j else 0)
-                scalar_product_matrix += scalar_product_matrix.T
-                scalar_product_matrix += eye(degeneracy)
-                rref = scalar_product_matrix.rref()
-                dependent = [index for index in range(degeneracy)
-                    if index not in rref[1]]
+                if degeneracy > 1:
+                    scalar_product_matrix = Matrix(degeneracy, degeneracy,
+                        lambda i,j : all_states[i][2]*all_states[j][2]*
+                        self.scalar_product(all_states[i][3], all_states[j][3],
+                        simple_root_list, highest_weight_vector)
+                        if i > j else 0)
+                    scalar_product_matrix += scalar_product_matrix.T
+                    scalar_product_matrix += eye(degeneracy)
+                    rref = scalar_product_matrix.rref()
+                    dependent = [index for index in range(degeneracy)
+                        if index not in rref[1]]
 
-                for i in rref[1]:
-                    for j in range(degeneracy):
-                        if not i==j:
-                            direction = all_states[j][4][0][2]
-                            parent = all_states[j][4][0][:2]
-                            parent_norm = weights_last_step[
-                                parent[0]][0][parent[1]][2]
-                            this_state_norm = all_states[j][2]
-                            matrix_element = (Rational(1,1)*scalar_product_matrix[i,j]*
-                                parent_norm/this_state_norm)
-                            all_states[i][4].append([parent[0],parent[1],direction,
-                                matrix_element])
-                            if not matrix_element == 0:
-                                parent_p_value = weights_last_step[
-                                    parent[0]][0][parent[1]][0]
-                                all_states[i][0][direction] = parent_p_value[direction]+1
+                    for i in rref[1]:
+                        for j in range(degeneracy):
+                            if not i==j:
+                                direction = all_states[j][4][0][2]
+                                parent = all_states[j][4][0][:2]
+                                parent_norm = weights_last_step[
+                                    parent[0]][0][parent[1]][2]
+                                this_state_norm = all_states[j][2]
+                                matrix_element = (Rational(1,1)*scalar_product_matrix[i,j]*
+                                    parent_norm/this_state_norm)
+                                all_states[i][4].append([parent[0],parent[1],direction,
+                                    matrix_element])
+                                if not matrix_element == 0:
+                                    parent_p_value = weights_last_step[
+                                        parent[0]][0][parent[1]][0]
+                                    all_states[i][0][direction] = parent_p_value[direction]+1
 
-                weights_this_step[weight][0] = [all_states[i] for i in rref[1]]
+                    weights_this_step[weight][0] = [all_states[i] for i in rref[1]]
 
+                    # orthonormalize
+
+                    norm_matrix = scalar_product_matrix.extract(rref[1],rref[1])
+                    rotation_to_ob = gram_schmidt_rotation(norm_matrix)
+                    weights_this_step[weight][1] = rotation_to_ob
+
+                else:
+                    weights_this_step[weight][1] = Matrix([[1]])
 
                 for state in weights_this_step[weight][0]:
                     state[1] = [a+b for a,b in zip(state[0],weight)]
-
-                # orthonormalize
-
-                norm_matrix = scalar_product_matrix.extract(rref[1],rref[1])
-                rotation_to_ob = gram_schmidt_rotation(norm_matrix)
-                weights_this_step[weight][1] = rotation_to_ob
 
             weights_last_step = weights_this_step
             weights_this_step = {}
@@ -333,7 +306,7 @@ class Representation(object):
         # calculate representation matrices for simple roots
 
         for i in range(self.lie_group.dimension):
-            simple_root_i_matrix = zeros(representation_dimension)
+            simple_root_i_nonzero = {}
             for weight in weights_dict:
                 states = weights_dict[weight][0]
                 for state in states:
@@ -341,30 +314,36 @@ class Representation(object):
                     parents = state[3]
                     for parent in parents:
                         if parent[2] == i:
-                            matrix_element = parent[3]
                             state_index2 = weights_dict[parent[0]][0][parent[1]][0]
-                            simple_root_i_matrix[state_index2, state_index1] = parent[3]
+                            simple_root_i_nonzero[(state_index2, state_index1)] = parent[3]
+            simple_root_i_matrix = SparseMatrix(representation_dimension,
+                                                representation_dimension,
+                                                simple_root_i_nonzero)
             representation_matrix_dict[tuple(
                 self.lie_group.simple_root_pq(i, cartan_matrix))] = simple_root_i_matrix
 
         # convert to orthonormal basis
 
-        rotation_to_ob = zeros(representation_dimension)
+        rotation_to_ob_nonzero = {}
         for weight in weights_dict:
             rotation_info = weights_dict[weight][1]
             rotation_matrix = rotation_info[0]
-            #rotation_matrix_inverse = rotation_matrix**-1
             start_index = rotation_info[1]
-            end_index  = rotation_info[2]
-            this_rotation = Matrix(representation_dimension,
-                representation_dimension, lambda i,j :
-                rotation_matrix[i-start_index,j-start_index]
-                if i in range(start_index,end_index+1)
-                and j in range(start_index,end_index+1) else 0)
-            rotation_to_ob+=this_rotation
+            end_index = rotation_info[2]
+            rotation_matrix_nonzero = dict(
+                [((i,j),rotation_matrix[i-start_index,j-start_index]) for
+                i in range(start_index, end_index+1) for
+                j in range(start_index, end_index+1)]
+            )
+            rotation_to_ob_nonzero.update(rotation_matrix_nonzero)
+
+        rotation_to_ob = SparseMatrix(representation_dimension,
+                                      representation_dimension,
+                                      rotation_to_ob_nonzero)
+
         for key in representation_matrix_dict:
-            rotated_matrix = rotation_to_ob* \
-            representation_matrix_dict[key]*rotation_to_ob.T
+            rotated_matrix = rotation_to_ob.multiply(
+                representation_matrix_dict[key].multiply(rotation_to_ob.T))
             rotated_matrix.simplify()
             representation_matrix_dict[key] = rotated_matrix
 
@@ -372,7 +351,7 @@ class Representation(object):
 
         fundamental_weights = self.lie_group.fundamental_weights()
 
-        cartan_matrices = [zeros(representation_dimension) for i in range(
+        cartan_matrices_nonzero = [{} for i in range(
             self.lie_group.dimension)]
         for weight in weights_dict:
             weight_vector = [sum([weight[i]*fundamental_weights[i][j]
@@ -382,22 +361,28 @@ class Representation(object):
             for state in states:
                 state_index = state[0]
                 for i in range(self.lie_group.dimension):
-                    cartan_matrices[i][state_index,state_index] = weight_vector[i]
+                    cartan_matrices_nonzero[i][(state_index,state_index)] = weight_vector[i]
 
         for i in range(self.lie_group.dimension):
-            representation_matrix_dict[i] = cartan_matrices[i]
+            representation_matrix_dict[i] = SparseMatrix(representation_dimension,
+                                                         representation_dimension,
+                                                         cartan_matrices_nonzero[i])
 
         # calculate representation matrices for other positive roots
 
         positive_roots = self.lie_group.positive_roots()[0]
+        positive_roots_list = [(key,) +  positive_roots[key] for key in positive_roots
+                               if isinstance(positive_roots[key][2],list)]
+        positive_roots_list = sorted(positive_roots_list,
+                                     key = lambda item : item[3])
 
-
-        for root in positive_roots:
-            if isinstance(positive_roots[root][1], list):
-                positive_root_matrix = self.commutator_to_matrix(
-                    positive_roots[root][1], cartan_matrix,
-                    representation_matrix_dict)
-                factor = positive_roots[root][0]
+        for i in range(len(positive_roots_list)):
+                matrix1 = representation_matrix_dict[positive_roots_list[i][2][0]]
+                matrix2 = representation_matrix_dict[positive_roots_list[i][2][1]]
+                positive_root_matrix = matrix1.multiply(matrix2).add(
+                    - matrix2.multiply(matrix1))
+                factor = positive_roots_list[i][1]
+                root = positive_roots_list[i][0]
                 representation_matrix_dict[root] =  factor*positive_root_matrix
 
         # generate matrices for negative roots
