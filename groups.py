@@ -236,16 +236,18 @@ class LieGroup(object):
             q_value = [0 for j in range(i)] + [2,] +  \
                        [0 for j in range(self.dimension -i -1)]
             p_value = [a-b for a,b in zip(q_value, simple_root_i)]
-            roots_last_step[tuple(simple_root_i)] = [p_value, q_value, 1 , i]
+            roots_last_step[tuple(simple_root_i)] = [p_value, q_value, 1 ,
+                                                     tuple(simple_root_i), 0]
 
         while True:
 
             for (roots, value) in roots_last_step.items():
-                roots_dict[roots] = (value[2],value[3])
+                roots_dict[roots] = (value[2],value[3],value[4])
 
             for roots in roots_last_step:
                 p_value = roots_last_step[roots][0]
                 q_value = roots_last_step[roots][1]
+                level = roots_last_step[roots][4]
                 for i in range(self.dimension):
                     if p_value[i] > 0:
                         simple_root_i = [cartan_matrix[i,j]
@@ -259,14 +261,12 @@ class LieGroup(object):
                             factor = sqrt(2)/sqrt(list_product(simple_root_list[i],
                                 simple_root_list[i])*(j_value + m_value +1)*
                                 (j_value - m_value))
-                            last_factor = roots_last_step[roots][2]
-                            new_factor = factor*last_factor
-                            last_commutator = roots_last_step[roots][3]
-                            new_commutator = [i, last_commutator]
+                            commutator = [tuple(simple_root_i), roots]
+                            new_level = level+1
                             new_q_value = [0 for j in range(self.dimension)]
                             new_q_value[i]+=q_value[i]+1
                             roots_this_step[tuple(new_root)] = [None,
-                                new_q_value, new_factor, new_commutator]
+                                new_q_value, factor, commutator, new_level]
 
             for roots in roots_this_step:
                 roots_this_step[roots][0] = [
