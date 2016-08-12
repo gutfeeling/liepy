@@ -44,8 +44,8 @@ class Representation(object):
 
         self.highest_weight = highest_weight
 
-    def scalar_product(self, state1, state2, simple_root_list,
-                       highest_weight_vector):
+    def scalar_product(self, state1, state2, simple_root_length_squared_list,
+                       cartan_matrix):
         '''
         Computes the scalar product between two states. The states are
         represented by lists containing intergers. The sequence of integers
@@ -89,15 +89,15 @@ class Representation(object):
             moving_operator = state1[0]
             for i in range(len(state2)):
                 if moving_operator == state2[i]:
-                    new_vector = highest_weight_vector
+                    simple_root_length = simple_root_length_squared_list[moving_operator]
+                    product = self.highest_weight[moving_operator]
                     for j in range(i+1,len(state2)):
-                        new_vector = [a-b for a,b in zip(
-                            new_vector, simple_root_list[state2[j]])]
-                    product = list_product(new_vector, simple_root_list[state1[0]])
+                        product -= cartan_matrix[state2[j], moving_operator]
+                    product *= Rational(1,2)*simple_root_length
                     new_state1 = state1[1:]
                     new_state2 = state2[:i] + state2[i+1:]
                     result+=product*self.scalar_product(new_state1, new_state2,
-                        simple_root_list, highest_weight_vector)
+                        simple_root_length_squared_list, cartan_matrix)
             result = together(result)
             try:
                 self.scalar_product_dict[len(state1)][
@@ -135,12 +135,8 @@ class Representation(object):
 
         '''
 
-        simple_root_list = self.lie_group.simple_roots()
         cartan_matrix = self.lie_group.cartan_matrix()
-        fundamental_weight_list = self.lie_group.fundamental_weights()
-        highest_weight_vector = [sum([fundamental_weight_list[i][j]*
-            self.highest_weight[i] for i in range(self.lie_group.dimension)])
-            for j in range(self.lie_group.dimension)]
+        simple_root_length_squared_list = self.lie_group.simple_root_length_squared_list()
 
         self.scalar_product_dict = {}
 
@@ -176,7 +172,7 @@ class Representation(object):
                 weights_dict[weights] = [state_list,
                     [value[1],start_index, end_index]]
 
-            #print("Computed %s states so far..." % len(weights_dict))
+            print("Computed %s states so far..." % len(weights_dict))
 
             for weight in weights_last_step:
                 for state_num in range(len(weights_last_step[weight][0])):
@@ -192,7 +188,8 @@ class Representation(object):
                             new_weight = [a-b for a,b in zip(weight,simple_root_i)]
                             lowering_chain.insert(0,i)
                             new_norm = 1/sqrt(self.scalar_product(lowering_chain,
-                                lowering_chain, simple_root_list, highest_weight_vector))
+                                lowering_chain, simple_root_length_squared_list,
+                                cartan_matrix))
                             new_p_value = [0 for j in range(self.lie_group.dimension)]
                             new_p_value[i]+=p_value[i]+1
                             new_q_value = None
@@ -214,7 +211,7 @@ class Representation(object):
                     scalar_product_matrix = Matrix(degeneracy, degeneracy,
                         lambda i,j : all_states[i][2]*all_states[j][2]*
                         self.scalar_product(all_states[i][3], all_states[j][3],
-                        simple_root_list, highest_weight_vector)
+                        simple_root_length_squared_list, cartan_matrix)
                         if i > j else 0)
                     scalar_product_matrix += scalar_product_matrix.T
                     scalar_product_matrix += eye(degeneracy)
@@ -372,7 +369,7 @@ class Representation(object):
 
         positive_roots = self.lie_group.positive_roots()[0]
         positive_roots_list = [(key,) +  positive_roots[key] for key in positive_roots
-                               if isinstance(positive_roots[key][2],list)]
+                               if isinstance(positive_roots[key][1],list)]
         positive_roots_list = sorted(positive_roots_list,
                                      key = lambda item : item[3])
 
@@ -383,7 +380,13 @@ class Representation(object):
                     - matrix2.multiply(matrix1))
                 factor = positive_roots_list[i][1]
                 root = positive_roots_list[i][0]
-                representation_matrix_dict[root] =  factor*positive_root_matrix
+
+                # sympy cannot multiply a Pow object and a SparseMatrix object
+                # to produce a SparseMatrix object. It produces a Mul object
+                # instead. That's why factor*positive_root_matrix doesn't work.
+
+                representation_matrix_dict[root] =  positive_root_matrix.applyfunc(
+                    lambda i : factor*i)
 
         # generate matrices for negative roots
 

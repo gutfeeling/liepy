@@ -177,6 +177,14 @@ class LieGroup(object):
 
         return simple_root_list
 
+    def simple_root_length_squared_list(self):
+        '''
+        Returns a list of the length squared of the simple root vectors
+        '''
+        simple_root_list = self.simple_roots()
+        return [list_product(simple_root_list[i], simple_root_list[i]) for i
+                in range(len(simple_root_list))]
+
     def cartan_matrix(self):
         '''
         Computes the Cartan matrix from the list of simple roots
