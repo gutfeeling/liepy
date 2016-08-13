@@ -1,5 +1,6 @@
 from sympy import zeros, sqrt
 
+
 def list_product(list1,list2):
     '''
     Returns the dot product of two lists
