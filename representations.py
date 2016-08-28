@@ -44,8 +44,39 @@ class Representation(object):
 
         self.highest_weight = highest_weight
 
+    def path_exists(self, lowering_chain, weights_dict, highest_weight):
+
+        try:
+            if lowering_chain in self.non_existent_lowering_chains[len(lowering_chain)]:
+                return False
+        except KeyError:
+            pass
+
+        current_weight = highest_weight
+
+        for i in reversed(lowering_chain):
+            children_list = [child for state in weights_dict[tuple(current_weight)][0]
+                for child in state[3]]
+            if all(child == [] for child in children_list):
+                return True
+            else:
+                weight_list = [child[0] for child in children_list if child[2] == i]
+                if weight_list == []:
+                    try:
+                        self.non_existent_lowering_chains[
+                            len(lowering_chain)].append(lowering_chain)
+                    except:
+                        self.non_existent_lowering_chains[
+                            len(lowering_chain)] = [lowering_chain]
+                    return False
+                else:
+                    current_weight = weight_list[0]
+        return True
+
+
+
     def scalar_product(self, state1, state2, simple_root_length_squared_list,
-                       cartan_matrix):
+                       cartan_matrix, weights_dict, highest_weight):
         '''
         Computes the scalar product between two states. The states are
         represented by lists containing intergers. The sequence of integers
@@ -62,6 +93,16 @@ class Representation(object):
 
         ## we need to compute many scalar products to resolve degenracies in
         ## the weight diagram.
+
+        if len(state1) ==0 and len(state2) == 0:
+            return 1
+
+        if not self.path_exists(state1, weights_dict, highest_weight):
+            return 0
+
+        if not self.path_exists(state2, weights_dict, highest_weight):
+            return 0
+
 
         ## we store every computed scalar product to a dictionary in order to
         ## reuse results.
@@ -82,30 +123,28 @@ class Representation(object):
 
         # if result is not stored, compute it
 
-        if len(state1) ==0 and len(state2) == 0:
-            return 1
-        else:
-            result = 0
-            moving_operator = state1[0]
-            for i in range(len(state2)):
-                if moving_operator == state2[i]:
-                    simple_root_length = simple_root_length_squared_list[moving_operator]
-                    product = self.highest_weight[moving_operator]
-                    for j in range(i+1,len(state2)):
-                        product -= cartan_matrix[state2[j], moving_operator]
-                    product *= Rational(1,2)*simple_root_length
-                    new_state1 = state1[1:]
-                    new_state2 = state2[:i] + state2[i+1:]
-                    result+=product*self.scalar_product(new_state1, new_state2,
-                        simple_root_length_squared_list, cartan_matrix)
-            result = together(result)
-            try:
-                self.scalar_product_dict[len(state1)][
-                    (tuple(state1),tuple(state2))] = result
-            except KeyError:
-                self.scalar_product_dict[len(state1)] = {
-                    (tuple(state1),tuple(state2)) : result}
-            return result
+        result = 0
+        moving_operator = state1[0]
+        for i in range(len(state2)):
+            if moving_operator == state2[i]:
+                simple_root_length = simple_root_length_squared_list[moving_operator]
+                product = self.highest_weight[moving_operator]
+                for j in range(i+1,len(state2)):
+                    product -= cartan_matrix[state2[j], moving_operator]
+                product *= Rational(1,2)*simple_root_length
+                new_state1 = state1[1:]
+                new_state2 = state2[:i] + state2[i+1:]
+                result+=product*self.scalar_product(new_state1, new_state2,
+                    simple_root_length_squared_list, cartan_matrix, weights_dict,
+                    highest_weight)
+        result = together(result)
+        try:
+            self.scalar_product_dict[len(state1)][
+                (tuple(state1),tuple(state2))] = result
+        except KeyError:
+            self.scalar_product_dict[len(state1)] = {
+                (tuple(state1),tuple(state2)) : result}
+        return result
 
     def __weights(self):
         '''
@@ -139,6 +178,7 @@ class Representation(object):
         simple_root_length_squared_list = self.lie_group.simple_root_length_squared_list()
 
         self.scalar_product_dict = {}
+        self.non_existent_lowering_chains = {}
 
         weights_dict = {}
         weights_this_step = {}
@@ -165,14 +205,27 @@ class Representation(object):
                 start_index = state_index
                 state_list = []
                 for state_num in range(len(value[0])):
-                    state_list.append([state_index,] + value[0][state_num][2:])
+                    parents = value[0][state_num][4]
+                    for parent in parents:
+                        parent_weight = parent[0]
+                        parent_state_num = parent[1]
+                        weights_dict[parent_weight][0][parent_state_num][3].append(
+                            [weights, state_num, parent[2], parent[3]]
+                        )
+                for state_num in range(len(value[0])):
+                    state_list.append([state_index,] + value[0][state_num][2:4]
+                        + [[],])
                     state_index+=1
                 end_index = state_index -1
 
                 weights_dict[weights] = [state_list,
                     [value[1],start_index, end_index]]
 
-            print("Computed %s states so far..." % len(weights_dict))
+            all_states = [state for weight in weights_dict for state in
+                weights_dict[weight][0]]
+
+            print("Computed {0} weights and {1} states so far...".format(
+                len(weights_dict), len(all_states)))
 
             for weight in weights_last_step:
                 for state_num in range(len(weights_last_step[weight][0])):
@@ -189,7 +242,7 @@ class Representation(object):
                             lowering_chain.insert(0,i)
                             new_norm = 1/sqrt(self.scalar_product(lowering_chain,
                                 lowering_chain, simple_root_length_squared_list,
-                                cartan_matrix))
+                                cartan_matrix, weights_dict, self.highest_weight))
                             new_p_value = [0 for j in range(self.lie_group.dimension)]
                             new_p_value[i]+=p_value[i]+1
                             new_q_value = None
@@ -211,7 +264,8 @@ class Representation(object):
                     scalar_product_matrix = Matrix(degeneracy, degeneracy,
                         lambda i,j : all_states[i][2]*all_states[j][2]*
                         self.scalar_product(all_states[i][3], all_states[j][3],
-                        simple_root_length_squared_list, cartan_matrix)
+                        simple_root_length_squared_list, cartan_matrix,
+                        weights_dict, self.highest_weight)
                         if i > j else 0)
                     scalar_product_matrix += scalar_product_matrix.T
                     scalar_product_matrix += eye(degeneracy)
@@ -254,6 +308,7 @@ class Representation(object):
             weights_this_step = {}
 
         self.scalar_product_dict = {}
+        self.non_existent_lowering_chains = {}
 
         self.weights_dict = weights_dict
         return weights_dict
@@ -308,11 +363,11 @@ class Representation(object):
                 states = weights_dict[weight][0]
                 for state in states:
                     state_index1 = state[0]
-                    parents = state[3]
-                    for parent in parents:
-                        if parent[2] == i:
-                            state_index2 = weights_dict[parent[0]][0][parent[1]][0]
-                            simple_root_i_nonzero[(state_index2, state_index1)] = parent[3]
+                    children = state[3]
+                    for child in children:
+                        if child[2] == i:
+                            state_index2 = weights_dict[child[0]][0][child[1]][0]
+                            simple_root_i_nonzero[(state_index1, state_index2)] = child[3]
             simple_root_i_matrix = SparseMatrix(representation_dimension,
                                                 representation_dimension,
                                                 simple_root_i_nonzero)
