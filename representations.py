@@ -172,7 +172,11 @@ class Representation(object):
                 weights_dict[weights] = [state_list,
                     [value[1],start_index, end_index]]
 
-            print("Computed %s states so far..." % len(weights_dict))
+            all_states = [state for weight in weights_dict for state in
+                weights_dict[weight][0]]
+
+            print("Computed {0} weights and {1} states so far...".format(
+                len(weights_dict), len(all_states)))
 
             for weight in weights_last_step:
                 for state_num in range(len(weights_last_step[weight][0])):
