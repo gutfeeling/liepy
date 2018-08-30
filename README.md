@@ -1,4 +1,4 @@
-# K2P2
+# LiePy
 
 Computes representation matrices for Lie groups.
 
@@ -7,8 +7,8 @@ Computes representation matrices for Lie groups.
 ## Clone the repo
 
 ```
-git clone https://github.com/gutfeeling/K2P2.git
-cd K2P2
+git clone https://github.com/gutfeeling/liepy.git
+cd liepy
 ```
 
 
